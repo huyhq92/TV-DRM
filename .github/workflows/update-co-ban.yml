@@ -1,0 +1,28 @@
+name: Dong bo list co ban
+
+on:
+  schedule:
+    - cron: "15 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tai list moi va ghi de co-ban.m3u neu thay doi
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/huyhq92/m3u/refs/heads/main/tv44.m3u" -o co-ban.m3u.tmp
+          COUNT=$(grep -c '^#EXTINF' co-ban.m3u.tmp || true)
+          echo "So kenh: $COUNT"
+          if [ "$COUNT" -lt 100 ]; then echo "List bat thuong, huy bo"; exit 1; fi
+          mv co-ban.m3u.tmp co-ban.m3u
+          if git diff --quiet -- co-ban.m3u; then echo "Khong co thay doi"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add co-ban.m3u
+          git commit -m "Dong bo list co ban ($COUNT kenh)"
+          git push
