@@ -102,10 +102,10 @@ https://1011154949.vnns.net/CDN-FPT02/HTVC-DULICH-HD-1080p/chunks.m3u8
 https://1011154949.vnns.net/CDN-FPT02/HTVC-PLUS-HD-1080p/chunks.m3u8
 #EXTINF:-1 tvg-id="vinhlong1hd" group-title="THVL" tvg-logo="https://images.fptplay53.net/media/channels/OTT_ECS/2026/07/10/thvl1.png",Vĩnh Long 1
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (SMART-TV; LINUX; Tizen 10.0) AppleWebKit/537.36 (KHTML, like Gecko) 130.0.6723.116/10.0 TV Safari/537.36
-https://1011154949.vnns.net/htvc/thvl1hd.720p.nimble.adm.tms/chunks.m3u8
+https://freem3u.xyz/api/live/play.m3u8?vid=25
 #EXTINF:-1 tvg-id="vinhlong2hd" group-title="THVL" tvg-logo="https://images.fptplay53.net/media/channels/OTT_ECS/2026/07/10/vinh-long-2.png",Vĩnh Long 2
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (SMART-TV; LINUX; Tizen 10.0) AppleWebKit/537.36 (KHTML, like Gecko) 130.0.6723.116/10.0 TV Safari/537.36
-https://1011154949.vnns.net/htvc/thvl2hd.720p.nimble.adm.tms/chunks.m3u8
+https://freem3u.xyz/api/live/play.m3u8?vid=26
 #EXTINF:-1 tvg-id="vinhlong3hd" group-title="THVL" tvg-logo="https://images.fptplay53.net/media/channels/OTT_ECS/2026/07/10/vinh-long-3.png",Vĩnh Long 3
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (SMART-TV; LINUX; Tizen 10.0) AppleWebKit/537.36 (KHTML, like Gecko) 130.0.6723.116/10.0 TV Safari/537.36
 https://freem3u.xyz/api/live/play.m3u8?vid=219
