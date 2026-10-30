@@ -1162,7 +1162,7 @@
                 if (epgMatch && epgMatch[1]) {
                     globalEPGUrl = epgMatch[1];
                     console.log("Tìm thấy EPG URL từ playlist:", globalEPGUrl);
-                    fetchEPG(globalEPGUrl);
+                    fetchEPG(globalEPGUrl, true);
                 }
             }
 
@@ -1438,27 +1438,49 @@
             showToast('Đang kết nối URL...', 'success');
             let text = '';
 
-            // Danh sách các proxy để thử nghiệm vượt rào CORS
+            // Link rút gọn của chủ kênh: tinyurl chặn CORS ở bước chuyển hướng
+            // (ACAO không khớp origin) nên trình duyệt không đọc trực tiếp được.
+            // Ưu tiên bản sao cùng origin trên chính GitHub Pages này (file co-ban.m3u,
+            // được workflow tự đồng bộ mỗi 2 giờ) — nhanh và không qua proxy ngoài.
+            const SHORTLINK_MIRRORS = {
+                'https://tinyurl.com/tvhm102': 'co-ban.m3u',
+                'http://tinyurl.com/tvhm102': 'co-ban.m3u'
+            };
+            const mirrorUrl = SHORTLINK_MIRRORS[urlInput.replace(/\/$/, '')];
+
+            // Danh sách các proxy để thử nghiệm vượt rào CORS (mỗi lần thử tối đa 12s)
             const isLocal = !urlInput.startsWith('http');
             const proxies = isLocal ? [''] : [
                 '', // 1: Thử trực tiếp đầu tiên (Phù hợp Github)
-                'https://api.allorigins.win/raw?url=', // 2: Proxy Allorigins phổ biến
-                'https://corsproxy.io/?url=', // 3: Corsproxy IO
-                'https://crossorigin.me/', // 4: Crossorigin fallback
+                'https://api.allorigins.win/raw?url=', // 2: Proxy Allorigins
+                'https://api.codetabs.com/v1/proxy?quest=', // 3: Proxy Codetabs
             ];
 
             let success = false;
             let lastError = null;
 
+            const candidateUrls = [];
+            if (mirrorUrl) candidateUrls.push({ label: 'Bản sao cùng trang', url: mirrorUrl, raw: true });
             for (const proxy of proxies) {
+                candidateUrls.push({
+                    label: proxy ? 'Proxy ' + proxy : 'Trực tiếp',
+                    url: proxy ? proxy + encodeURIComponent(urlInput) : urlInput,
+                    raw: !!proxy
+                });
+            }
+
+            for (const cand of candidateUrls) {
                 try {
-                    const fetchUrl = proxy ? proxy + encodeURIComponent(urlInput) : urlInput;
-                    const response = await fetch(fetchUrl, {
-                        // Thêm headers cơ bản để bypass một số rule chặn bot đơn giản
-                        headers: {
-                            'Accept': 'text/plain, */*'
-                        }
-                    });
+                    const fetchUrl = cand.url;
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 12000);
+                    let response;
+                    try {
+                        response = await fetch(fetchUrl, {
+                            headers: { 'Accept': 'text/plain, */*' },
+                            signal: ctrl.signal
+                        });
+                    } finally { clearTimeout(timer); }
 
                     if (response.ok) {
                         text = await response.text();
@@ -1469,7 +1491,7 @@
 
                         if (isM3U || isJSON) {
                             success = true;
-                            console.log(`Đã tải nguồn phát thành công bằng luồng: ${proxy ? 'Proxy ' + proxy : 'Direct'}`);
+                            console.log(`Đã tải nguồn phát thành công bằng luồng: ${cand.label}`);
                             break; // Thoát vòng lặp nếu tải thành công
                         } else {
                             throw new Error('Nội dung trả về không phải định dạng nguồn phát hợp lệ.');
@@ -1479,7 +1501,7 @@
                     }
                 } catch (e) {
                     lastError = e;
-                    console.warn(`Thử fetch thất bại với ${proxy ? 'proxy ' + proxy : 'luồng trực tiếp'}:`, e.message);
+                    console.warn(`Thử fetch thất bại với ${cand.label}:`, e.message);
                 }
             }
 
@@ -1725,48 +1747,54 @@
             }
         }
 
-        async function fetchEPG(url) {
+        async function fetchEPG(url, silentError = false) {
             if (epgFetchStatus === 'fetching' && !url) return;
             epgFetchStatus = 'fetching';
 
-            // Ưu tiên đọc từ file local (đã được C# tải về, không có CORS)
-            const localUrl = 'http://data.local/epg.xml';
             const remoteUrl = url || DEFAULT_EPG_URL;
 
             let text = '';
             let success = false;
 
-            // Thử local trước
-            try {
-                const localResponse = await fetch(localUrl);
-                if (localResponse.ok) {
-                    text = await localResponse.text();
-                    if (text.length > 1000 && text.includes('<?xml')) {
-                        success = true;
-                        console.log('[EPG] Đọc từ local epg.xml thành công, kích thước:', text.length);
-                    }
-                }
-            } catch (e) {
-                console.log('[EPG] Không có file local, thử tải từ mạng...');
-            }
-
-            // Nếu local thất bại, fetch trực tiếp (có thể bị CORS)
-            if (!success) {
-                console.log('[EPG] Đang tải EPG từ:', remoteUrl);
+            // Tải EPG: trực tiếp trước, hỏng CORS thì vòng qua proxy.
+            // Hỗ trợ cả file .xml.gz (giải nén bằng DecompressionStream).
+            const epgCandidates = [
+                remoteUrl,
+                'https://api.allorigins.win/raw?url=' + encodeURIComponent(remoteUrl),
+                'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(remoteUrl)
+            ];
+            console.log('[EPG] Đang tải EPG từ:', remoteUrl);
+            for (const candUrl of epgCandidates) {
                 try {
-                    const response = await fetch(remoteUrl);
-                    if (response.ok) {
-                        text = await response.text();
-                        if (text.length > 1000 && text.includes('<?xml')) success = true;
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 20000);
+                    let response;
+                    try {
+                        response = await fetch(candUrl, { signal: ctrl.signal });
+                    } finally { clearTimeout(timer); }
+                    if (!response.ok) continue;
+                    let buf = await response.arrayBuffer();
+                    const bytes = new Uint8Array(buf);
+                    if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+                        const ds = new DecompressionStream('gzip');
+                        buf = await new Response(new Blob([buf]).stream().pipeThrough(ds)).arrayBuffer();
+                    }
+                    const decoded = new TextDecoder('utf-8').decode(buf);
+                    if (decoded.length > 1000 && decoded.includes('<?xml')) {
+                        text = decoded;
+                        success = true;
+                        break;
                     }
                 } catch (e) {
-                    console.warn('[EPG] Fetch trực tiếp thất bại:', e.message);
+                    console.warn('[EPG] Thử tải EPG thất bại:', candUrl.substring(0, 60), e.message);
                 }
             }
 
             if (!success) {
                 epgFetchStatus = 'error';
-                showToast('Không thể tải lịch phát sóng. Vui lòng thử lại.', 'error');
+                // EPG chỉ là phụ trợ: hỏng thì ghi log, không bật toast làm phiền
+                console.warn('[EPG] Không tải được lịch phát sóng từ:', remoteUrl);
+                if (!silentError) showToast('Không thể tải lịch phát sóng. Vui lòng thử lại.', 'error');
                 return;
             }
 
@@ -2744,7 +2772,7 @@
 
         // Chỉ tải EPG mặc định, không tự động tải danh sách kênh
         window.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => fetchEPG(), 100);
+            setTimeout(() => fetchEPG(undefined, true), 100);
         });
     </script>
 </body>
