@@ -20,6 +20,7 @@ jobs:
           # Doi sang link freem3u (TV360 CDN, co CORS) giong list input cua chu kenh.
           sed -i -E 's|https://[0-9]+\.vnns\.net/htvc/thvl1hd[^[:space:]]*|https://freem3u.xyz/api/live/play.m3u8?vid=25|' co-ban.m3u.tmp
           sed -i -E 's|https://[0-9]+\.vnns\.net/htvc/thvl2hd[^[:space:]]*|https://freem3u.xyz/api/live/play.m3u8?vid=26|' co-ban.m3u.tmp
+          sed -i 's|playlist-pre_1080p\.m3u8|master.m3u8|g' co-ban.m3u.tmp
           COUNT=$(grep -c '^#EXTINF' co-ban.m3u.tmp || true)
           echo "So kenh: $COUNT"
           if [ "$COUNT" -lt 100 ]; then echo "List bat thuong, huy bo"; exit 1; fi
