@@ -1397,16 +1397,15 @@
             event.target.value = '';
         }
 
-        // Tải qua URL có sẵn
+        // Tải qua URL có sẵn (không ghi link vào ô nhập — ô chỉ hiện link khi người dùng tự điền)
         async function loadPredefinedUrl(url) {
-            document.getElementById('url-input').value = url;
             closeAddDialog();
-            await loadFromUrl();
+            await loadFromUrl(url);
         }
 
         // Tải qua URL
-        async function loadFromUrl() {
-            const urlInput = document.getElementById('url-input').value.trim();
+        async function loadFromUrl(presetUrl) {
+            const urlInput = (typeof presetUrl === 'string' ? presetUrl : document.getElementById('url-input').value).trim();
             if (!urlInput) return showToast('Vui lòng dán đường dẫn URL!', 'error');
 
             // === Phát hiện link luồng trực tiếp (.m3u8, .mpd, .ts) ===
